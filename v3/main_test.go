@@ -8,23 +8,26 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gonzaloserrano/go-hex-arch-example/v3/app"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	dialect "upper.io/db.v3/postgresql"
 )
 
 func TestCounter(t *testing.T) {
 	require := require.New(t)
 
-	db, err := dialect.Open(dialect.ConnectionURL{
-		Database: "test",
-		User:     "test",
-		Host:     "localhost:54321",
-	})
-	require.NoError(err)
+	var sum int
+	repo := &CounterRepositoryMock{
+		FindByIDFunc: func(ID string) app.Counter {
+			return app.Counter{ID: ID, Value: sum}
+		},
+		UpsertFunc: func(c app.Counter) {
+			sum = c.Value
+		},
+	}
 
-	getHandler := newGetHandler(db)
-	addHandler := newAddHandler(db)
+	getHandler := newGetHandler(repo)
+	addHandler := newAddHandler(repo)
 
 	counterID := uuid.New().String()
 	for _, tc := range []struct {
@@ -46,8 +49,8 @@ func TestCounter(t *testing.T) {
 		require.Equal(http.StatusOK, w.Code)
 
 		if tc.reqMethod == "GET" {
-			var c counter
-			err = json.NewDecoder(w.Body).Decode(&c)
+			var c app.Counter
+			err := json.NewDecoder(w.Body).Decode(&c)
 			require.NoError(err)
 			require.Equal(counterID, c.ID)
 			require.Equal(tc.respValue, c.Value)

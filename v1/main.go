@@ -31,11 +31,7 @@ func main() {
 		dbCounter.ID = httpCounter.ID
 		dbCounter.Value += httpCounter.Value
 
-		upsertFunc := func(q string) string { return q + " ON CONFLICT(id) DO UPDATE SET value = EXCLUDED.value" }
-		_, err := db.InsertInto("counter").Values(dbCounter).Amend(upsertFunc).Exec()
-		if err != nil {
-			panic(err)
-		}
+		db.InsertInto("counter").Values(dbCounter).Amend(onConflictUpdate).Exec()
 	})
 
 	http.HandleFunc("/counter/get", func(w http.ResponseWriter, r *http.Request) {
@@ -46,4 +42,8 @@ func main() {
 	})
 
 	http.ListenAndServe(":8080", nil)
+}
+
+func onConflictUpdate(q string) string {
+	return q + " ON CONFLICT(id) DO UPDATE SET value = EXCLUDED.value"
 }
